@@ -3,15 +3,26 @@ use strict;
 use warnings;
 
 use feature ':5.10';
-use JSON;
+use autodie;
 
+use JSON;
 use PDL;
 use PDL::NiceSlice;
 my $pi = 3.14159265359;
 
+
 # here I read the json that comes in from the overpass query and massage it to
-# pass to the solver
+# be acceptable to the solver. The input comes from query.sh. I follow each way,
+# making sure it contains points sampled at least $point_spacing_min apart. I
+# map each lat/lon pair to a plane tangent to the earth (modeled as a sphere) in
+# the center of the query rectangle. The earth is neither flat nor a sphere, but
+# this is good enough for what I'm trying to do.
 #
+# The output is a list of points to feed to the voronoi solver. The output
+# filename is points_lat0_lon0_lat1_lon1.dat
+
+
+
 # The earth-centered coordinate system has
 #   x points out from lon = 0          (greenwich)
 #   y points out from lon = +90degrees (mongolia)
@@ -43,6 +54,7 @@ my $R             = PDL::cat( east_at_latlon (@latlon_center),
 # slurp input. Assuming it's not too large
 my $osm = decode_json(`cat $infile`);
 
+open OUT, '>', "points_" . join('_', @corners) .".dat";
 
 my %nodes;
 for my $elem (@{$osm->{elements}})
@@ -63,7 +75,7 @@ for my $elem (@{$osm->{elements}})
 
                 # boost voronoi computation thing wants integer input, so I'm
                 # rounding to the nearest meter. This is close enough
-                say join(' ', $p->round->list);
+                say OUT join(' ', $p->round->list);
             }
 
 
