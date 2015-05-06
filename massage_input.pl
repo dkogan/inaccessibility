@@ -57,6 +57,17 @@ for my $elem (@{$osm->{elements}})
 
         for my $nodeid(@{$elem->{nodes}})
         {
+            sub accept_point
+            {
+                my $p = shift;
+
+                # boost voronoi computation thing wants integer input, so I'm
+                # rounding to the nearest meter. This is close enough
+                say join(' ', $p->round->list);
+            }
+
+
+
             die "Way $elem->{id} references not-yet-seen node $nodeid"
               unless exists $nodes{$nodeid};
 
@@ -79,14 +90,14 @@ for my $elem (@{$osm->{elements}})
                     while( $d_from_prev > $point_spacing_min )
                     {
                         $p_last += $diff_from_prev * $point_spacing_min;
-                        say join(' ', $p_last->list);
+                        accept_point($p_last);
 
                         $d_from_prev -= $point_spacing_min;
                     }
                 }
             }
 
-            say join(' ', $p->list);
+            accept_point($p);
             $p_last = $p;
         }
     }
