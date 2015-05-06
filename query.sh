@@ -1,5 +1,13 @@
 #!/bin/zsh
 
+# script to get OSM ways from the global database in a lat/lon rectangle.
+# Required usage is
+#   $0 lat0 lon0 lat1 lon1
+#
+# The JSON output is written into query_lat0_lon0_lat1_lon1.json
+
+
+
 for i (`seq 4`)
     {
         [ -z "${@[$i]}" ] && { echo "need 4 arguments on the commandline: lat,lon,  lat,lon"; exit 1  }
