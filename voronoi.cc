@@ -60,7 +60,8 @@ int main(void)
 
 
     double distsq_furthest = -1.0;
-    int x_furthest = 0, y_furthest = 0;
+    double x_furthest = 0.0, y_furthest = 0.0;
+    const voronoi_diagram<double>::edge_type* edge_furthest = NULL;
 
 
     for (voronoi_diagram<double>::const_vertex_iterator it = vd.vertices().begin();
@@ -72,26 +73,45 @@ int main(void)
 
         double distsq = -1.0;
 
-        const voronoi_diagram<double>::cell_type* c0 = it->incident_edge()->cell();
-        if( c0 != NULL )
-        {
-            int i = c0->source_index();
-            double px = (double)points[i].x;
-            double py = (double)points[i].y;
+        // The distance between a Voronoi vertex and an adjacent source point is
+        // the same for all such adjecent source points by definition of a
+        // Voronoi vertex. I thus take an arbitrary edge from my vertex, and
+        // take an arbitrary cell adjecent to this vertex
+        const voronoi_diagram<double>::edge_type* e = it->incident_edge();
+        const voronoi_diagram<double>::cell_type* c = e->cell();
+        int i = c->source_index();
+        double px = (double)points[i].x;
+        double py = (double)points[i].y;
 
-            double dx = px - it->x();
-            double dy = py - it->y();
-            distsq = dx*dx + dy*dy;
-        }
+        double dx = px - it->x();
+        double dy = py - it->y();
+        distsq = dx*dx + dy*dy;
 
         if( distsq > distsq_furthest)
         {
             distsq_furthest = distsq;
-            x_furthest = (int)round(it->x());
-            y_furthest = (int)round(it->y());
+            x_furthest      = it->x();
+            y_furthest      = it->y();
+            edge_furthest   = e;
         }
     }
 
-    printf("furthest: (%d,%d) dist: %g\n", x_furthest, y_furthest, sqrt(distsq_furthest));
+    printf("furthest point center, surrounding points:\n");
+    printf("%d %d\n", (int)round(x_furthest), (int)round(y_furthest));
+
+    const voronoi_diagram<double>::edge_type* e = edge_furthest;
+    do
+    {
+        int i;
+
+        i = e->cell()->source_index();
+        printf("%d %d\n",
+               (int)points[i].x, (int)points[i].y);
+
+        e = e->rot_next();
+    } while(e != edge_furthest);
+
+
+    printf("distance: %f\n", sqrt(distsq_furthest));
     return 0;
 }
