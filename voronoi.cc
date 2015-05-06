@@ -1,4 +1,5 @@
-// finds the point furthest from a set of points coming in on stdin
+// finds the point furthest from a set of points read in from a file given on
+// stdin
 //
 // Constructs a voronoi diagram, and returns the vertex in the largest cell.
 // boost::polygon is used as the voronoi library. I'm not huge fan of it's
@@ -9,6 +10,8 @@
 #include <stdio.h>
 #include <vector>
 #include <boost/polygon/voronoi.hpp>
+
+
 
 
 using boost::polygon::voronoi_diagram;
@@ -39,8 +42,12 @@ namespace boost { namespace polygon {
 
 int main(void)
 {
-    std::vector<Point> points;
+    // first I read off my data bounds, then the rest follows
+    int xmin, ymin;
+    int xmax, ymax;
+    scanf("%d %d %d %d", &xmin, &ymin, &xmax, &ymax);
 
+    std::vector<Point> points;
     int x, y;
     while( 2 == scanf("%d %d", &x, &y) )
         points.push_back(Point(x, y));
@@ -52,10 +59,18 @@ int main(void)
                       &vd);
 
 
+    double distsq_furthest = -1.0;
+    int x_furthest = 0, y_furthest = 0;
+
+
     for (voronoi_diagram<double>::const_vertex_iterator it = vd.vertices().begin();
          it != vd.vertices().end(); ++it) {
 
-        printf("%g vert %g\n", it->x(), it->y());
+        if( (int)it->x() <= xmin || (int)it->x() >= xmax ||
+            (int)it->y() <= ymin || (int)it->y() >= ymax )
+            continue;
+
+        double distsq = -1.0;
 
         const voronoi_diagram<double>::cell_type* c0 = it->incident_edge()->cell();
         if( c0 != NULL )
@@ -66,8 +81,17 @@ int main(void)
 
             double dx = px - it->x();
             double dy = py - it->y();
-            printf("dist: %g\n", sqrt(dx*dx + dy*dy));
+            distsq = dx*dx + dy*dy;
+        }
+
+        if( distsq > distsq_furthest)
+        {
+            distsq_furthest = distsq;
+            x_furthest = (int)round(it->x());
+            y_furthest = (int)round(it->y());
         }
     }
+
+    printf("furthest: (%d,%d) dist: %g\n", x_furthest, y_furthest, sqrt(distsq_furthest));
     return 0;
 }

@@ -20,6 +20,18 @@ my $pi = 3.14159265359;
 #
 # The output is a list of points to feed to the voronoi solver. The output
 # filename is points_lat0_lon0_lat1_lon1.dat
+#
+# The voronoi solver spits out the point on the plane that's furthest from
+# everything. This can be converted back to latlon by calling this tool again,
+# passing in the xy on the commandline. So this can be invoked like
+#
+#   $0 query_lat0_lon0_lat1_lon1.json
+#
+# to generate input to the voronoi solver. Or like
+#
+#   $0 query_lat0_lon0_lat1_lon1.json x y
+#
+# to convert the x y coords to latlon
 
 
 
@@ -31,7 +43,8 @@ my $Rearth                = 6371000.0; # meters
 my $point_spacing_min     = 100.0;     # meters
 
 
-my $infile = shift;
+
+my $infile = shift @ARGV;
 die "Input json must appear on the commandline"         unless defined $infile;
 die "Existing json file must appear on the commandline" unless -e $infile;
 
@@ -50,6 +63,23 @@ my $p_center      = $v_center * $Rearth;
 my $R             = PDL::cat( east_at_latlon (@latlon_center),
                               north_at_latlon(@latlon_center),
                               $v_center )->transpose;
+
+
+
+
+if( @ARGV )
+{
+    say join(',', unmap(@ARGV));
+    exit;
+}
+
+
+
+
+
+
+
+
 
 open OUT, '>', "points_" . join('_', @corners) .".dat";
 
@@ -205,4 +235,12 @@ sub map_latlon
     # locally the surface is flat-enough, and I just take the (E,N)
     # tuple, and ignore the height (deviation from flat)
     return $p_mapped->(0:1);
+}
+
+# the opposite of map_latlon
+sub unmap
+{
+    my $p_mapped = pdl(@_, 0);
+    my $p = $p_mapped x $R->transpose + $p_center;
+    return latlon_from_v($p->flat / $Rearth);
 }
