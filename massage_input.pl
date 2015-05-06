@@ -51,11 +51,19 @@ my $R             = PDL::cat( east_at_latlon (@latlon_center),
                               north_at_latlon(@latlon_center),
                               $v_center )->transpose;
 
-# slurp input. Assuming it's not too large
-my $osm = decode_json(`cat $infile`);
-
 open OUT, '>', "points_" . join('_', @corners) .".dat";
 
+# I write out the min/max coordinates of the corners, mapped to my plane.
+# Adjacent corners won't actually have the lat/lon, but it's close enough for my
+# purposes
+say OUT join(' ', PDL::list(PDL::rint(map_latlon( $corners[0], $corners[1] ))));
+say OUT join(' ', PDL::list(PDL::rint(map_latlon( $corners[2], $corners[3] ))));
+
+
+
+
+# slurp input. Assuming it's not too large
+my $osm = decode_json(`cat $infile`);
 my %nodes;
 for my $elem (@{$osm->{elements}})
 {
@@ -83,12 +91,8 @@ for my $elem (@{$osm->{elements}})
             die "Way $elem->{id} references not-yet-seen node $nodeid"
               unless exists $nodes{$nodeid};
 
-            my $p = $Rearth * v_from_latlon($nodes{$nodeid}{lat}, $nodes{$nodeid}{lon});
-            my $p_mapped = ($p - $p_center) x $R;
+            my $p = map_latlon($nodes{$nodeid}{lat}, $nodes{$nodeid}{lon});
 
-            # locally the surface is flat-enough, and I just take the (E,N)
-            # tuple, and ignore the height (deviation from flat)
-            $p = $p_mapped->(0:1);
             if( defined $p_last )
             {
                 my $diff_from_prev = $p - $p_last;
@@ -188,4 +192,17 @@ sub east_at_latlon
     my $slat = sin($lat * $pi / 180.0);
 
     return pdl( -$slon, $clon, 0);
+}
+
+sub map_latlon
+{
+    # input is ($lat,$lon)
+
+    my $p = $Rearth * v_from_latlon(@_);
+
+    my $p_mapped = ($p - $p_center) x $R;
+
+    # locally the surface is flat-enough, and I just take the (E,N)
+    # tuple, and ignore the height (deviation from flat)
+    return $p_mapped->(0:1);
 }
