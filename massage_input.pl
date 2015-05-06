@@ -75,7 +75,7 @@ for my $elem (@{$osm->{elements}})
 
                 # boost voronoi computation thing wants integer input, so I'm
                 # rounding to the nearest meter. This is close enough
-                say OUT join(' ', $p->round->list);
+                say OUT join(' ', $p->rint->list);
             }
 
 
