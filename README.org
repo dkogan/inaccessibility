@@ -195,7 +195,7 @@ by Ross Mountain:
 
 | pole         | lat,lon               | distance to nearest (m) |
 |--------------+-----------------------+-------------------------|
-| roads,trails | 34.3206973,-117.76174 |                    4349 |
+| roads,trails | 34.3206973,-117.76174 |                    4343 |
 | roads only   | 34.3107784,-117.74736 |                    5677 |
 
 This is shown nicely on the map:
