@@ -1,0 +1,212 @@
+* Overview
+
+So I was out hiking with a friend, and a question came up about where the least
+accessible point of the San Gabriel Mountains was, with "accessible" defined as
+having a road or trail nearby. This repository answers that question.
+
+This is called the [[http://en.wikipedia.org/wiki/Pole_of_inaccessibility][Pole of Inaccessibility]]: a point that is as far away as
+possible from a given set of objects. Locations of such poles are known for the
+most landlocked spot on earth or most far away from land. Here we limit
+ourselves to the San Gabriel Mountains, and try to stay away from roads and
+trails.
+
+* Approach
+
+** Input data processing
+
+[[http://www.openstreetmap.org][OpenStreetMap]] has open data I can use to map out all the roads and trails. This
+is the input dataset.
+
+For 2D geometry, the best approach to compute the Pole of Inaccessibility
+appears to be to construct a [[http://en.wikipedia.org/wiki/Voronoi_diagram][Voronoi diagram]] of the geometry we're trying to
+stay away from, and to find the Voronoi vertex corresponding to the
+furthest-away point.
+
+Our world is not 2D. Instead, it has varying elevation sitting on top of an
+ellipsoid. The grand purpose here is to compute a location that hardy people can
+visit and to tell everybody they did it, so extreme accuracy is not required.
+Thus I claim that assuming the world is locally-flat and using the
+Voronoi-diagram-based method is sufficient. So I construct a plane that best
+describes my query area and project all my input points to this plane. I use a
+plane that is tangent to the Earth's surface at the center of the query area.
+This clearly wouldn't work if trying to find the pole of inaccessibility of
+something as large as an ocean, for instance, but it works here.
+
+To compute the tangent plane, I assume the Earth is spherical. As I move along
+the tangent plane away from the point of tangency, the elevation error grows:
+
+ E = sqrt(R_earth * R_earth + d * d) - R_earth
+
+The San Gabriels are about 80km across, and the tangent plane sits in the
+middle, so at worst d = 40km and the error is about 125m. That's plenty good
+enough.
+
+I ignore the ellipsoid shape of the Earth outright. I ignore the topography as
+well, since including it in my distance metrics would require a fancier
+algorithm than making a Voronoi diagram, and it would make the notion of
+"inaccessibility" more ambiguous.
+
+** Pole of Inaccessibility computation
+
+I want to use the most basic Voronoi algorithm, so I represent my input as a set
+of points only; no line segments. To get reasonable accuracy, I make sure to
+sample each road at least every 100m.
+
+Now that I have my set of dense-enough points in 2D, I construct the Voronoi
+diagram. Without constraints the furthest-away point would be infinitely far off
+to one side, so generally people constrain the solution to lie within the convex
+hull of the input points. This means that the Pole of Inaccessibility lies
+either on a Voronoi vertex or at an intersection of a Voronoi edge and the
+convex hull of the input. In my case there are generally more roads at the edges
+of my query area that in the interior (less stuff in the mountains than in the
+flats), so I simply assume that the Pole of Inaccessibility is not on the convex
+hull. This simplifies my implementation since I simply ignore all the Voronoi
+vertices that are outside of the query region.
+
+So I need to look at every Voronoi vertex, check the distance between it and an
+adjacent input point, and return the vertex with the largest such distance.
+
+* Implementation
+
+Each step in the process lives in its own program. This simplifies
+implementation and makes it easy to work on each piece separately.
+
+** Data import
+
+First we query OSM. This is done with the =query.sh= script. It takes in corners
+of the query area, constructs the query, sends it off to the server, and stores
+the result. =query.sh= takes 4 arguments; lat0, lon0, lat1, lon1, and stores its
+output in a file called =query_$lat0_$lon0_$lat1_$lon1.json=. The query uses the
+[[http://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL][OSM Overpass query language]]. By default I simply look at all the roads, trails
+(everything with a =highway= tag):
+
+#+BEGIN_EXAMPLE
+[out:json];
+
+way ["highway"] ($lat0,$lon0,$lat1,$lon1);
+
+(._;>;);
+
+out;
+#+END_EXAMPLE
+
+If I want to only consider roads in my computation (allow trails), then I can
+exclude trails from the query:
+
+#+BEGIN_EXAMPLE
+[out:json];
+
+way ["highway"] ["highway" != "footway" ] ["highway" != "path" ] ($lat0,$lon0,$lat1,$lon1);
+
+(._;>;);
+
+out;
+#+END_EXAMPLE
+
+Sample invocation:
+
+#+BEGIN_EXAMPLE
+$ ./query.sh 34.1390884 -118.4944153 34.5020298 -117.5852966
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100 28.3M    0 28.3M    0   138  72803      0 --:--:--  0:06:48 --:--:--  138k
+
+
+$ ls -lh query*
+
+-rw-r--r-- 1 dkogan dkogan 29M May  6 04:12 query_34.1390884_-118.4944153_34.5020298_-117.5852966.json
+#+END_EXAMPLE
+
+** Data massaging
+
+Next, I take the lat/lon pairs, map them to the tangent plane and make sure the
+data is sufficiently dense. This is done by the =massage_input.pl= script. It
+takes in the =query_....json= file we just obtained, and generates a
+=points_$lat0_$lon0_$lat1_$lon1.dat= file that is a list of (x,y) tuples in my
+plane. There's a small header of 4 values, representing the bounds of my data so
+that I can reject outlying vertices, as described earlier.
+
+Sample invocation:
+
+#+BEGIN_EXAMPLE
+$ ./massage_input.pl query_34.1390884_-118.4944153_34.5020298_-117.5852966.json
+
+
+$ ls -lh points*
+
+-rw-r--r-- 1 dkogan dkogan 4.3M May  6 04:20 points_34.1390884_-118.4944153_34.5020298_-117.5852966.dat
+#+END_EXAMPLE
+
+** Pole of Inaccessibility computation
+
+Now we can compute the Voronoi diagram. I use [[http://www.boost.org/doc/libs/1_57_0/libs/polygon/doc/index.htm][boost::polygon]] to do this. I had
+concerns that this step would be prohibitively slow, but the algorithm and this
+implementation are quick-enough such that this "just works".
+
+The =points_....dat= file is inputs on standard input. Note that this is
+different from the other tools that read a file on the commandline instead.
+
+For each Voronoi vertex I get an arbitrary neighboring edge, and an arbitrary
+neighboring cell. The distance between the vertex and the cell center is
+identical for any such edge, cell by definition of a Voronoi vertex. I keep
+track of the cell with the largest distance between the vertex and the cell
+center, and I report the vertex with the largest such distance as my Pole of
+Inaccessibility.
+
+Sample invocation:
+
+#+BEGIN_EXAMPLE
+$ ./voronoi < points_34.1390884_-118.4944153_34.5020298_-117.5852966.dat 
+
+furthest point center, surrounding points:
+25541 -78
+25308 4259
+21223 -543
+26931 -4192
+distance: 4342.873206
+#+END_EXAMPLE
+
+Bam! So the Pole of Inaccessibility is about 4.3 km from the nearest trail/road.
+The coordinates here are in my 2D tangent plane, which isn't super useful. Now I
+convert them to lat/lon and I'm done.
+
+** Unmapping the planar coordinates
+
+I do this with the massaging script as before simply by passing the coords in on
+the commandline:
+
+#+BEGIN_EXAMPLE
+$ ./massage_input.pl query_34.1390884_-118.4944153_34.5020298_-117.5852966.json 25541 -78 25308 4259 21223 -543 26931 -4192
+
+34.3206972918426,-117.761740671673
+34.3597096140465,-117.764149633831
+34.3165155855012,-117.808770212857
+34.2837076589351,-117.746734473897
+#+END_EXAMPLE
+
+OK. Done.
+
+* Results
+
+I did this twice: once avoiding all roads, trails and again avoiding roads only.
+Both Poles of Inaccessibility are above the East Fork of the San Gabriel River,
+by Ross Mountain:
+
+| pole         | lat,lon               | distance to nearest (m) |
+|--------------+-----------------------+-------------------------|
+| roads,trails | 34.3206973,-117.76174 |                    4349 |
+| roads only   | 34.3107784,-117.74736 |                    5677 |
+
+This is shown nicely on the map:
+
+http://caltopo.com/m/4N7A
+
+[[file:poles.png]]
+
+Looks like the bounding spots for the roads,trails point are the road up to
+South Mt Hawkins, the PCT on top of Mt. Baden-Powell and the trail at the Bridge
+to Nowhere.
+
+The bounding spots for the roads-only point is the same road up to South Mt
+Hawkins, the Cabin Flat Campground and Shoemaker Canyon Road.
