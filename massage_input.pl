@@ -28,7 +28,7 @@ my $pi = 3.14159265359;
 #   y points out from lon = +90degrees (mongolia)
 #   z points up to the north pole
 my $Rearth                = 6371000.0; # meters
-my $point_spacing_min     = 100.0; # meters
+my $point_spacing_min     = 100.0;     # meters
 
 
 my $infile = shift;
