@@ -23,15 +23,16 @@ my $pi = 3.14159265359;
 #
 # The voronoi solver spits out the point on the plane that's furthest from
 # everything. This can be converted back to latlon by calling this tool again,
-# passing in the xy on the commandline. So this can be invoked like
+# passing in the xy on the commandline, as many xy pairs as is desired. So this
+# can be invoked like
 #
 #   $0 query_lat0_lon0_lat1_lon1.json
 #
 # to generate input to the voronoi solver. Or like
 #
-#   $0 query_lat0_lon0_lat1_lon1.json x y
+#   $0 query_lat0_lon0_lat1_lon1.json x0 y0 x1 y1 ...
 #
-# to convert the x y coords to latlon
+# to convert the (x,y) coords to latlon
 
 
 
@@ -69,10 +70,15 @@ my $R             = PDL::cat( east_at_latlon (@latlon_center),
 
 if( @ARGV )
 {
-    say join(',', unmap(@ARGV));
+    while ( @ARGV )
+    {
+        my $x = shift;
+        my $y = shift;
+
+        say join(',', unmap($x,$y));
+    }
     exit;
 }
-
 
 
 
@@ -88,7 +94,7 @@ open OUT, '>', "points_" . join('_', @corners) .".dat";
 # purposes
 say OUT join(' ', PDL::list(PDL::rint(map_latlon( $corners[0], $corners[1] ))));
 say OUT join(' ', PDL::list(PDL::rint(map_latlon( $corners[2], $corners[3] ))));
-
+say OUT '';
 
 
 
