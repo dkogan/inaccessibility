@@ -44,7 +44,6 @@ my $R             = PDL::cat( east_at_latlon (@latlon_center),
 my $osm = decode_json(`cat $infile`);
 
 
-my $points = pdl[];
 my %nodes;
 for my $elem (@{$osm->{elements}})
 {
@@ -80,20 +79,18 @@ for my $elem (@{$osm->{elements}})
                     while( $d_from_prev > $point_spacing_min )
                     {
                         $p_last += $diff_from_prev * $point_spacing_min;
-                        $points = $points->glue(1, $p_last);
+                        say join(' ', $p_last->list);
 
                         $d_from_prev -= $point_spacing_min;
                     }
                 }
             }
 
-            $points = $points->glue(1, $p);
+            say join(' ', $p->list);
             $p_last = $p;
         }
     }
 }
-
-say $points;
 
 
 
