@@ -210,3 +210,7 @@ to Nowhere.
 
 The bounding spots for the roads-only point is the same road up to South Mt
 Hawkins, the Cabin Flat Campground and Shoemaker Canyon Road.
+* License
+
+All code Copyright 2015 Dima Kogan, released under the terms of the Lesser GNU
+Public License (any version)
