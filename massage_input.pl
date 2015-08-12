@@ -99,7 +99,7 @@ say OUT '';
 
 
 # slurp input. Assuming it's not too large
-my $osm = decode_json(`cat $infile`);
+my $osm = decode_json(scalar `cat $infile`);
 my %nodes;
 for my $elem (@{$osm->{elements}})
 {
