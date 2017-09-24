@@ -70,12 +70,16 @@ my $R             = PDL::cat( east_at_latlon (@latlon_center),
 
 if( @ARGV )
 {
-    while ( @ARGV )
+    while ( @ARGV >= 2 && $ARGV[0] =~ /^[0-9-]+$/)
     {
         my $x = shift;
         my $y = shift;
 
         say join(',', unmap($x,$y));
+    }
+    if(@ARGV)
+    {
+        say "@ARGV";
     }
     exit;
 }
